@@ -71,4 +71,17 @@ const loginUser = async ({ email, password })=>{
     return { user: userObj, accessToken, refreshToken };
 };
 
-export { registerUser, loginUser };
+// generate new access token 
+const getNewAccessToken = async (userId) =>{
+    const existingUser = await User.findById(userId).select('_id role');
+    if(!existingUser){
+        throw { status: 401, message: "User not found" };
+    }
+
+    // generate access token
+    const accessToken = generateToken({ id: existingUser._id, role: existingUser.role });
+
+    return { accessToken };
+};
+
+export { registerUser, loginUser, getNewAccessToken };

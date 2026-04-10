@@ -1,4 +1,4 @@
-import { loginUser, registerUser } from "./auth.service.js";
+import { getNewAccessToken, loginUser, registerUser } from "./auth.service.js";
 import RefreshToken from "./refreshToken.model.js";
 
 // register api
@@ -24,6 +24,7 @@ const register = async (req, res)=>{
     }
 };
 
+// login api
 const login = async (req, res)=>{
     try {
         const { user, accessToken, refreshToken } = await loginUser(req.body);
@@ -55,4 +56,33 @@ const login = async (req, res)=>{
     }
 };
 
-export { register, login };
+// refreshToken api
+const refreshToken = async (req, res)=>{
+    try {
+        const token = req.cookies.refreshToken;
+        if(!token){
+            return res.status(401).json({ message: 'No refresh Token provided' });
+        }
+
+        // check in DB
+        const storedToken = await RefreshToken.findOne({ token });
+        if (!storedToken) {
+            return res.status(401).json({ message: "Invalid refresh token" });
+        }
+
+        // generate new access token
+        const { accessToken } = await getNewAccessToken(storedToken.userId);
+
+        res.status(200).json({
+            message: 'New Access Token Generated',
+            accessToken
+        });
+    } catch (err) {
+        console.log(`Something went wrong`, err);
+        res.status(err.status || 500).json({
+            message: err.message || "Internal server error"
+        });
+    }
+};
+
+export { register, login, refreshToken };
