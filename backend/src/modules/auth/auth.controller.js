@@ -1,4 +1,5 @@
-import { getNewAccessToken, loginUser, registerUser } from "./auth.service.js";
+import User from "./auth.model.js";
+import { getNewAccessToken, loginUser, logoutUser, registerUser } from "./auth.service.js";
 import RefreshToken from "./refreshToken.model.js";
 
 // register api
@@ -85,4 +86,25 @@ const refreshToken = async (req, res)=>{
     }
 };
 
-export { register, login, refreshToken };
+// logout api
+const logout = async (req, res)=>{
+    try {
+        const token = req.cookies.refreshToken;
+        
+        // call service
+        await logoutUser(token);
+
+        // clear cookies
+        res.clearCookie('refreshToken');
+
+        // success
+        res.status(200).json({ message: "Logged Out Successfully" });
+    } catch (err) {
+        console.log(`Something went wrong`, err);
+        res.status(err.status || 500).json({
+            message: err.message || "Internal server error"
+        });
+    }
+};
+
+export { register, login, refreshToken, logout };

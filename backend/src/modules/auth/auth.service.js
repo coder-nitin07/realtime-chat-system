@@ -84,4 +84,14 @@ const getNewAccessToken = async (userId) =>{
     return { accessToken };
 };
 
-export { registerUser, loginUser, getNewAccessToken };
+// logout service
+const logoutUser = async (token) =>{
+    if(!token){
+        return;
+    }
+
+    // delete this session from DB
+    await RefreshToken.deleteOne({ token });
+};
+
+export { registerUser, loginUser, getNewAccessToken, logoutUser };
