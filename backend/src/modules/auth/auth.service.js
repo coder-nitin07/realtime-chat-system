@@ -1,4 +1,6 @@
 import { generateToken } from "../../utils/jwt.js";
+import createRefreshToken from "../../utils/refreshToken.js";
+import RefreshToken from "./refreshToken.model.js";
 import User from "./auth.model.js";
 import bcrypt from "bcrypt";
 
@@ -47,13 +49,26 @@ const loginUser = async ({ email, password })=>{
         throw { status: 401, message: "Invalid credentials" };
     }
 
-    // jwt creation
-    const token = generateToken({ id: existingUser._id, role: existingUser.role });
+    // generate tokens
+    const accessToken = generateToken({ id: existingUser._id, role: existingUser.role });
+    const refreshToken = createRefreshToken();
 
+    // delete old tokens
+    await RefreshToken.deleteMany({ userId: existingUser._id });
+
+    // save new refresh token
+    await RefreshToken.create({
+        userId: existingUser._id,
+        token: refreshToken,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+    });
+
+    
     const userObj = existingUser.toObject();
     delete userObj.password;
 
-    return { user: userObj, token };
+    // service not touch DB here
+    return { user: userObj, accessToken, refreshToken };
 };
 
 export { registerUser, loginUser };

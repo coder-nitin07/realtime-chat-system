@@ -1,4 +1,5 @@
 import { loginUser, registerUser } from "./auth.service.js";
+import RefreshToken from "./refreshToken.model.js";
 
 // register api
 const register = async (req, res)=>{
@@ -25,7 +26,16 @@ const register = async (req, res)=>{
 
 const login = async (req, res)=>{
     try {
-        const { user, token } = await loginUser(req.body);
+        const { user, accessToken, refreshToken } = await loginUser(req.body);
+
+        // send refresh token in cookie
+        res.cookie('refreshToken', refreshToken, {
+            httpOnly: true,
+            secure: false,
+            sameSite: 'strict'
+        });
+
+        // send accessToken in response with other details
         res.status(200).json({
             message: 'User login successfully',
             user: {
@@ -35,7 +45,7 @@ const login = async (req, res)=>{
                 username: user.username,
                 avatar: user.avatar
             },
-            token
+            accessToken
         });
     } catch (err) {
         console.log(`Something went wrong`, err);
