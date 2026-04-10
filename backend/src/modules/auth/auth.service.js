@@ -31,4 +31,29 @@ const registerUser = async ({ name, username, email, avatar, password })=>{
     return { user: newUser, token };
 };
 
-export { registerUser };
+// login User
+const loginUser = async ({ email, password })=>{
+    if(!email || !password){
+        throw { status: 400, message: "Email and Password are required." }
+    }
+
+    const existingUser = await User.findOne({ email }).select('+password');
+    if(!existingUser){
+        throw { status: 401, message: "Invalid credentials" };
+    }
+
+    const isMatch = await bcrypt.compare(password, existingUser.password);
+    if(!isMatch){
+        throw { status: 401, message: "Invalid credentials" };
+    }
+
+    // jwt creation
+    const token = generateToken({ id: existingUser._id, role: existingUser.role });
+
+    const userObj = existingUser.toObject();
+    delete userObj.password;
+
+    return { user: userObj, token };
+};
+
+export { registerUser, loginUser };
