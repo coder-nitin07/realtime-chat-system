@@ -8,4 +8,4 @@ const verifyToken = (token) =>{
     return jwt.verify(token, process.env.JWT_SECRET);
 };
 
-export { generateToken };
+export { generateToken, verifyToken };

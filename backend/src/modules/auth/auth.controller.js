@@ -1,5 +1,5 @@
 import User from "./auth.model.js";
-import { getNewAccessToken, loginUser, logoutUser, registerUser } from "./auth.service.js";
+import { getNewAccessToken, loginUser, logoutAllDevices, logoutUser, registerUser } from "./auth.service.js";
 import RefreshToken from "./refreshToken.model.js";
 
 // register api
@@ -107,4 +107,27 @@ const logout = async (req, res)=>{
     }
 };
 
-export { register, login, refreshToken, logout };
+
+// logout from all device api
+const logoutAll = async (req, res)=>{
+    try {
+        const userId = req.user.id;
+
+        // call services
+        await logoutAllDevices(userId);
+
+        // clear cookie (current devi e)
+        res.clearCookie('refreshToken');
+
+        res.status(200).json({
+            message: 'Logged out from all devices successfully'
+        });
+    } catch (err) {
+        console.log(`Something went wrong`, err);
+        res.status(err.status || 500).json({
+            message: err.message || "Internal server error"
+        });
+    }
+};
+
+export { register, login, refreshToken, logout, logoutAll };

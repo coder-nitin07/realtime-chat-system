@@ -94,4 +94,10 @@ const logoutUser = async (token) =>{
     await RefreshToken.deleteOne({ token });
 };
 
-export { registerUser, loginUser, getNewAccessToken, logoutUser };
+// logout from all device
+const logoutAllDevices = async (userId)=>{
+    // delete all sessions
+    await RefreshToken.deleteMany({ userId });
+};
+
+export { registerUser, loginUser, getNewAccessToken, logoutUser, logoutAllDevices };
