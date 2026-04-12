@@ -39,8 +39,13 @@ const createChat = async ({ currentUser, participants, type, groupName, admin, l
 
         const adminUser = currentUser;
 
+        // removee the admin if exist in participants
+        const filteredParticipants = participants.filter(
+            (id) => id !== adminUser
+        );
+
         // include admin in participants
-        const finalParticipants = [adminUser, ...participants];
+        const finalParticipants = [ adminUser, ...filteredParticipants ];
 
         const newConversationRoom = await Conversation.create({
             participants: finalParticipants,
