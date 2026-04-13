@@ -35,12 +35,39 @@ export const initSocket = (httpServer)=>{
         }
     });
 
-    // connection for verification
-    io.on('connection', (socket)=>{
-        console.log(`User connected`, socket.user.id);
+    const onlineUsers = new Map();
 
+    // users online
+    io.on('connection', (socket)=>{
+        const userId = socket.user.id;
+
+        // we ensure user exist in map
+        if(!onlineUsers.has(userId)){
+            onlineUsers.set(userId, new Set());
+        }
+
+        // add current socket
+        onlineUsers.get(userId).add(socket.id);
+
+        console.log('User connected', userId);
+        console.log('Online Users', onlineUsers.size);
+
+
+        // disconnect users
         socket.on('disconnect', ()=>{
-            console.log(`User disconnected`, socket.user.id);
+            console.log('Socket Disconnection', socket.id);
+
+            if (onlineUsers.has(userId)) {
+                const userSockets = onlineUsers.get(userId);
+
+                userSockets.delete(socket.id);
+
+                // if no active sockers user offline
+                if (userSockets.size === 0) {
+                    onlineUsers.delete(userId);
+                    console.log("User fully offline:", userId);
+                }
+            }
         });
     });
 
