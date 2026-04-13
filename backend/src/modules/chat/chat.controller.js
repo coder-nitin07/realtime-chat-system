@@ -1,4 +1,4 @@
-import { createChat } from "./chat.service.js";
+import { createChat, getChats } from "./chat.service.js";
 
 // create chat api
 const createRoom = async (req, res)=>{
@@ -24,4 +24,22 @@ const createRoom = async (req, res)=>{
     }
 };
 
-export { createRoom };
+// getMychats api
+const getMyChats = async (req, res)=>{
+    try {
+        const getUser = req.user.id;
+        const getChat = await getChats({ getUser });
+
+        res.status(200).json({ 
+            message: 'Fetched All Chats successfully',
+            getChat
+        })
+    } catch (err) {
+        console.log(`Something went wrong`, err);
+        res.status(err.status || 500).json({
+            message: err.message || "Internal server error"
+        });
+    }
+};
+
+export { createRoom, getMyChats };

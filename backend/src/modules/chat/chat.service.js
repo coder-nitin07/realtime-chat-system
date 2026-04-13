@@ -58,4 +58,17 @@ const createChat = async ({ currentUser, participants, type, groupName, admin, l
     }
 };
 
-export { createChat };
+// getChats service
+const getChats = async ({ getUser })=>{
+    const findUserChats = await Conversation.find({
+         participants: getUser
+    });
+
+    if(findUserChats.length <= 0){
+        return [];
+    }
+
+    return findUserChats;
+};
+
+export { createChat, getChats };
