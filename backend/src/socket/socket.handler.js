@@ -1,5 +1,6 @@
 import { Server } from "socket.io";
 import { verifyToken } from "../utils/jwt.js";
+import { saveMessage } from "../modules/chat/chat.service.js";
 
 let io;
 
@@ -51,6 +52,36 @@ export const initSocket = (httpServer)=>{
 
         console.log('User connected', userId);
         console.log('Online Users', onlineUsers.size);
+
+        socket.on("join_room", (conversationId) => {
+            socket.join(conversationId);
+            console.log(`User joined room: ${ conversationId }`);
+        });
+
+        socket.on("leave_room", (conversationId) => {
+            socket.leave(conversationId);
+            console.log(`User left room: ${ conversationId }`);
+        });
+
+        socket.on("send_message", async ({ conversationId, content }) => {
+            try {
+                const senderId = socket.user.id;
+                
+                const savedMessage = await saveMessage({
+                    conversationId,
+                    senderId,
+                    content
+                });
+
+                io.to(conversationId).emit("receive_message", savedMessage);
+            } catch (err) {
+                console.log("Error saving message", err );
+
+                socket.emit("message_error", {
+                    message: err.message
+                });
+            }
+        });
 
 
         // disconnect users

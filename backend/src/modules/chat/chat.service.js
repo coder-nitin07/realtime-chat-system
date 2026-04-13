@@ -1,4 +1,5 @@
 import Conversation from "./conversation.model.js";
+import Message from "./message.model.js";
 
 // chat api creation
 const createChat = async ({ currentUser, participants, type, groupName, admin, lastMessage })=>{
@@ -71,4 +72,25 @@ const getChats = async ({ getUser })=>{
     return findUserChats;
 };
 
-export { createChat, getChats };
+// save message in DB
+const saveMessage = async ({ conversationId, senderId, content })=>{
+    console.log("first", senderId);
+    const existingChatUser = await Conversation.findOne({
+        _id: conversationId,
+        participants: senderId
+    });
+
+    if(!existingChatUser){
+        throw new Error('User not part of this Conversation.')
+    }
+
+    const newMessage = await Message.create({
+        conversationId,
+        senderId,
+        content
+    });
+
+    return newMessage;
+};
+
+export { createChat, getChats, saveMessage };
