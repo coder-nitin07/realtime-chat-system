@@ -90,12 +90,15 @@ export const initSocket = (httpServer)=>{
                     conversationId,
                     message: savedMessage
                 }
- 
-                // emit locally (FAST)
-                io.to(conversationId).emit("receive_message", savedMessage);
 
+                // Invalidate cache
+                await pubClient.del(`chat:${conversationId}:messages`);
+ 
                 // publish to Redis
                 await pubClient.publish("chat_messages", JSON.stringify(messageData));
+
+                // emit locally (FAST)
+                io.to(conversationId).emit("receive_message", savedMessage);
 
             } catch (err) {
                 console.log("Error saving message", err );

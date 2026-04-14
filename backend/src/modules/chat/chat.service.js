@@ -1,3 +1,4 @@
+import { pubClient } from "../../config/redis.js";
 import Conversation from "./conversation.model.js";
 import Message from "./message.model.js";
 
@@ -61,15 +62,44 @@ const createChat = async ({ currentUser, participants, type, groupName, admin, l
 
 // getChats service
 const getChats = async ({ getUser })=>{
-    const findUserChats = await Conversation.find({
-         participants: getUser
-    });
+    try {
+        const cacheKey = `user:${ getUser }:chats`;
 
-    if(findUserChats.length <= 0){
-        return [];
+        // check the redis cache first
+        const cachedChats = await pubClient.lRange(cacheKey, 0, -1);
+
+        if(cachedChats.length > 0){
+            console.log('Cache HIT');
+
+            return cachedChats.map(chat => JSON.parse(chat));
+        }
+
+        console.log('Cache Miss');
+
+        // fetch from DB
+        const findUserChats = await Conversation.find({
+            participants: getUser
+        });
+
+        if(!findUserChats.length){
+            return [];
+        }
+
+        // store in Redis Cache
+        await pubClient.del(cacheKey); // clear the older cache
+
+        for(const chat of findUserChats){
+            await  pubClient.rPush(cacheKey, JSON.stringify(chat));
+        }
+
+        // cache expiryt time
+        await pubClient.expire(cacheKey, 3600);
+
+        return findUserChats;
+    } catch (err) {
+        console.log('getChats:', err);
+        throw err;
     }
-
-    return findUserChats;
 };
 
 // save message in DB
@@ -93,4 +123,36 @@ const saveMessage = async ({ conversationId, senderId, content })=>{
     return newMessage;
 };
 
-export { createChat, getChats, saveMessage };
+// fetch plder chats
+const fetchOlderChats = async ({ conversationId })=>{
+    const limit = 10;
+
+    const cacheKey = `chat:${ conversationId }:messages`;
+    const cachedMessages = await pubClient.lRange(cacheKey, 0, -1);
+
+    if(cachedMessages.length > 0){
+        console.log(`Cached Hit`);
+
+        return cachedMessages.map(msg => JSON.parse(msg));
+    }
+
+    console.log('Cache Miss');
+
+    const messages = await Message.find({
+        conversatioId: conversationId
+    })
+    .sort({ createdAt: -1 })
+    .limit(limit);
+
+    // store in Redis
+    for (const msg of messages) {
+        await pubClient.rPush(cacheKey, JSON.stringify(msg));
+    }
+
+    // set TTL
+    await pubClient.expire(cacheKey, 3600);
+
+    return messages;
+};
+
+export { createChat, getChats, saveMessage, fetchOlderChats };

@@ -1,4 +1,4 @@
-import { createChat, getChats } from "./chat.service.js";
+import { createChat, fetchOlderChats, getChats } from "./chat.service.js";
 
 // create chat api
 const createRoom = async (req, res)=>{
@@ -42,4 +42,23 @@ const getMyChats = async (req, res)=>{
     }
 };
 
-export { createRoom, getMyChats };
+const getMessages = async (req, res)=>{
+    try {
+        const { conversationId } = req.query;
+        const messages = await fetchOlderChats({ conversationId });
+
+
+        
+        res.status(200).json({
+            message: 'Messages Fetched Successfully',
+            data: messages
+        });
+    } catch (err) {
+        console.log(`Something went wrong`, err);
+        res.status(err.status || 500).json({
+            message: err.message || "Internal server error"
+        });
+    }
+};
+
+export { createRoom, getMyChats, getMessages };
