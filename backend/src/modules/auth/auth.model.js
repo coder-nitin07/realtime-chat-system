@@ -28,10 +28,6 @@ const authSchema = new mongoose.Schema({
         type: String,
         default: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSuIHxYERk65e_fAg_OfuLTiawQ5IQRMva9Zw&s"
     },
-    isOnline: {
-        type: Boolean,
-        default: false
-    },
     role: {
         type: String,
         enum: [ "user", "admin" ],
