@@ -72,6 +72,7 @@ temp/
 project_documentation.md
 project_phases.md
 project_steps.md
+code_flow.md
 
 # Package lock files (optional, usually keep them)
 # package-lock.json
