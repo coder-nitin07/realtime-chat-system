@@ -2,143 +2,191 @@ import { Server } from "socket.io";
 import { verifyToken } from "../utils/jwt.js";
 import { saveMessage } from "../modules/chat/chat.service.js";
 import { pubClient, subClient } from "../config/redis.js";
+import Conversation from "../modules/chat/conversation.model.js";
 
 let io;
 
-export const initSocket = (httpServer)=>{
+export const initSocket = (httpServer) => {
     io = new Server(httpServer, {
-        cors: { origin: '*' }
+        cors: { origin: "*" },
+        transports: ["polling", "websocket"],
     });
 
-    // socket middleware
-    io.use((socket, next)=>{
+    // ----------------------------
+    // AUTH MIDDLEWARE
+    // ----------------------------
+    io.use((socket, next) => {
+        const token = socket.handshake.auth?.token;
+
+        if (!token) {
+            return next(new Error("Authentication Failed: No Token"));
+        }
+
         try {
-            // get token from Client
-            const token = socket.handshake.auth?.token;
-
-            if(!token){
-                return next(new Error('Authentication Failed: No Token'));
-            }
-
-            // verify token
             const decoded = verifyToken(token);
-            if(!decoded){
-                return next(new Error('Authentication Failed: Invalid Token'));
+            if (!decoded) {
+                return next(new Error("Authentication Failed: Invalid Token"));
             }
 
-            // attach user to socket
             socket.user = decoded;
-
             next();
         } catch (err) {
             return next(new Error("Authentication failed"));
         }
     });
 
-    // track sockets per User
+    // ----------------------------
+    // TRACK ONLINE USERS (LOCAL)
+    // ----------------------------
     const onlineUsers = new Map();
 
-    // users online
-    io.on('connection', async (socket)=>{
+    io.on("connection", (socket) => {
         const userId = socket.user.id;
 
         // ----------------------------
-        // Handle Online Users
+        // HANDLE ONLINE USERS
         // ----------------------------
-        if(!onlineUsers.has(userId)){
+        if (!onlineUsers.has(userId)) {
             onlineUsers.set(userId, new Set());
         }
 
-        // add current socket
         onlineUsers.get(userId).add(socket.id);
 
+        // Add to Redis
+        setImmediate(async () => {
+            await pubClient.sAdd("online_users", userId);
+        });
 
-        // add to Redis
-        await pubClient.sAdd('online_users', userId);
+        console.log("User connected:", userId);
 
-        console.log('User connected', userId);
-        console.log('Online Users', onlineUsers.size);
+        // ----------------------------
+        // DELIVER OFFLINE MESSAGES
+        // ----------------------------
+        const offlineKey = `offline:${userId}:messages`;
 
-        // Join Room
+        setTimeout(async () => {
+            const pendingMessages = await pubClient.lRange(offlineKey, 0, -1);
+
+            if (pendingMessages.length > 0) {
+                console.log(`Delivering ${pendingMessages.length} offline messages`);
+
+                pendingMessages.forEach((msg) => {
+                    socket.emit("receive_message", JSON.parse(msg));
+                });
+
+                await pubClient.del(offlineKey);
+            }
+        }, 500); // small delay to ensure client ready
+
+        // ----------------------------
+        // JOIN ROOM
+        // ----------------------------
         socket.on("join_room", (conversationId) => {
             socket.join(conversationId);
-            console.log(`User joined room: ${ conversationId }`);
+            console.log(`User joined room: ${conversationId}`);
         });
 
-        // Leave Room
+        // ----------------------------
+        // LEAVE ROOM
+        // ----------------------------
         socket.on("leave_room", (conversationId) => {
             socket.leave(conversationId);
-            console.log(`User left room: ${ conversationId }`);
         });
 
-
-        // --------------------------------
-        // Send Message
-        // --------------------------------
+        // ----------------------------
+        // SEND MESSAGE
+        // ----------------------------
         socket.on("send_message", async ({ conversationId, content }) => {
             try {
                 const senderId = socket.user.id;
-                
+
                 // Save in DB
                 const savedMessage = await saveMessage({
                     conversationId,
                     senderId,
-                    content
+                    content,
                 });
 
                 const messageData = {
                     conversationId,
-                    message: savedMessage
-                }
+                    message: savedMessage,
+                };
 
                 // Invalidate cache
                 await pubClient.del(`chat:${conversationId}:messages`);
- 
-                // publish to Redis
+
+                // ----------------------------
+                // HANDLE OFFLINE USERS
+                // ----------------------------
+                const conversation = await Conversation.findById(conversationId).select("participants");
+
+                const receivers = conversation.participants.filter(
+                    (id) => id.toString() !== senderId.toString()
+                );
+
+                for (const receiverId of receivers) {
+                    const isOnline = await pubClient.sIsMember(
+                        "online_users",
+                        receiverId.toString()
+                    );
+
+                    console.log("Receiver:", receiverId, "Online:", isOnline);
+
+                    if (!isOnline) {
+                        const key = `offline:${receiverId}:messages`;
+
+                        await pubClient.rPush(key, JSON.stringify(messageData));
+                        await pubClient.lTrim(key, -50, -1);
+                        await pubClient.expire(key, 3600);
+
+                        console.log(`Stored offline for ${receiverId}`);
+                    }
+                }
+
+                // Publish to Redis
                 await pubClient.publish("chat_messages", JSON.stringify(messageData));
 
-                // emit locally (FAST)
-                io.to(conversationId).emit("receive_message", savedMessage);
-
             } catch (err) {
-                console.log("Error saving message", err );
-
-                socket.emit("message_error", {
-                    message: err.message
-                });
+                console.log("Error:", err);
+                socket.emit("message_error", { message: err.message });
             }
         });
 
-
-        // disconnect users
-        socket.on('disconnect', ()=>{
-            console.log('Socket Disconnection', socket.id);
+        // ----------------------------
+        // DISCONNECT
+        // ----------------------------
+        socket.on("disconnect", async () => {
+            console.log("Disconnected:", socket.id);
 
             if (onlineUsers.has(userId)) {
                 const userSockets = onlineUsers.get(userId);
-
                 userSockets.delete(socket.id);
 
-                // if no active sockers user offline
                 if (userSockets.size === 0) {
                     onlineUsers.delete(userId);
+
+                    // CRITICAL FIX
+                    await pubClient.sRem("online_users", userId);
+
                     console.log("User fully offline:", userId);
                 }
             }
         });
     });
 
-    // subscriber run once
-    subClient.subscribe('chat_messages', (message)=>{
+    // ----------------------------
+    // REDIS SUBSCRIBER
+    // ----------------------------
+    subClient.subscribe("chat_messages", (message) => {
         const data = JSON.parse(message);
 
-        const { conversationId, message: msg } = data;
+        const { conversationId } = data;
 
-        // emit to room (other servers)
-        io.to(conversationId).emit('receive_message', msg);
+        // Send SAME structure everywhere
+        io.to(conversationId).emit("receive_message", data);
     });
 
     return io;
 };
 
-export const getIO = ()=> io;
+export const getIO = () => io;

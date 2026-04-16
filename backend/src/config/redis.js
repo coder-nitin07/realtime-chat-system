@@ -1,11 +1,13 @@
+import dotenv from 'dotenv';
+dotenv.config();
 import { createClient } from "redis";
 
 const pubClient = createClient({
-    url: 'redis://localhost:6379'
+    url: process.env.REDIS_URI
 });
 
 const subClient = createClient({
-    url: 'redis://localhost:6379'
+    url: process.env.REDIS_URI
 });
 
 // Error handling
@@ -15,8 +17,14 @@ subClient.on('error', (err) => console.error('SubClient Error', err));
 // connect function
 export const connectRedis = async ()=>{
     try {
-        await pubClient.connect();
-        await subClient.connect();
+        if(!pubClient.isOpen){
+            await pubClient.connect();
+        }
+
+        if(!subClient.isOpen){
+            await subClient.connect();
+        }
+
         console.log('Redis connected Successfully');
     } catch (err) {
         console.error('Redis connection Failed', err);

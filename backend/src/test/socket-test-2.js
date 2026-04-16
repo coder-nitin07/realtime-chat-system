@@ -3,7 +3,7 @@ import { io } from "socket.io-client";
 const socket = io("http://localhost:3000", {
     transports: ["polling", "websocket"],
     auth: {
-    token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5ZGQwYThmMjAzNTM4NWUxYzQ4NjI2ZCIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzc2MzQ3NDgyLCJleHAiOjE3NzYzNDgzODJ9.5CVhH06Jb7dNjQz_ew8PN7ayNTDlGBkoXORQZDM5wF0",
+        token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5ZGQwYTY3MjAzNTM4NWUxYzQ4NjI2YyIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzc2MzQ3NTk0LCJleHAiOjE3NzYzNDg0OTR9.ibVAokcVhjLYKlWp5lcI1BGk1SJ8__B25s9_WlL77Fw",
     },
 });
 
@@ -19,7 +19,7 @@ socket.on("connect", () => {
     setTimeout(() => {
         socket.emit("send_message", {
             conversationId,
-            content: "User 1 Message 2",
+            content: "User 2 Messsage 1",
         });
     }, 3000);
 });
