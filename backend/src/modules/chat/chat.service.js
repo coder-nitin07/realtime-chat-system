@@ -155,4 +155,50 @@ const fetchOlderChats = async ({ conversationId })=>{
     return messages;
 };
 
-export { createChat, getChats, saveMessage, fetchOlderChats };
+const handleSendMessage = async ({ conversationId, senderId, content }) => {
+
+    // 1. Save message (reuse existing)
+    const savedMessage = await saveMessage({
+        conversationId,
+        senderId,
+        content,
+    });
+
+    const messageData = {
+        conversationId,
+        message: savedMessage,
+    };
+
+    // 2. Invalidate cache
+    await pubClient.del(`chat:${conversationId}:messages`);
+
+    // 3. Get conversation members
+    const conversation = await Conversation.findById(conversationId).select("participants");
+
+    const receivers = conversation.participants.filter(
+        (id) => id.toString() !== senderId.toString()
+    );
+
+    // 4. Handle offline users
+    for (const receiverId of receivers) {
+        const isOnline = await pubClient.sIsMember(
+            "online_users",
+            receiverId.toString()
+        );
+
+        if (!isOnline) {
+            const key = `offline:${receiverId}:messages`;
+
+            await pubClient.rPush(key, JSON.stringify(messageData));
+            await pubClient.lTrim(key, -50, -1);
+            await pubClient.expire(key, 3600);
+        }
+    }
+
+    // 5. Publish to Redis
+    await pubClient.publish("chat_messages", JSON.stringify(messageData));
+
+    return messageData;
+};
+
+export { createChat, getChats, saveMessage, fetchOlderChats, handleSendMessage };

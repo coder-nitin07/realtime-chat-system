@@ -1,6 +1,6 @@
 import { Server } from "socket.io";
 import { verifyToken } from "../utils/jwt.js";
-import { saveMessage } from "../modules/chat/chat.service.js";
+import { handleSendMessage } from "../modules/chat/chat.service.js";
 import { pubClient, subClient } from "../config/redis.js";
 import Conversation from "../modules/chat/conversation.model.js";
 
@@ -101,51 +101,11 @@ export const initSocket = (httpServer) => {
                 const senderId = socket.user.id;
 
                 // Save in DB
-                const savedMessage = await saveMessage({
+                const messageData = await handleSendMessage({
                     conversationId,
                     senderId,
-                    content,
+                    content
                 });
-
-                const messageData = {
-                    conversationId,
-                    message: savedMessage,
-                };
-
-                // Invalidate cache
-                await pubClient.del(`chat:${conversationId}:messages`);
-
-                // ----------------------------
-                // HANDLE OFFLINE USERS
-                // ----------------------------
-                const conversation = await Conversation.findById(conversationId).select("participants");
-
-                const receivers = conversation.participants.filter(
-                    (id) => id.toString() !== senderId.toString()
-                );
-
-                for (const receiverId of receivers) {
-                    const isOnline = await pubClient.sIsMember(
-                        "online_users",
-                        receiverId.toString()
-                    );
-
-                    console.log("Receiver:", receiverId, "Online:", isOnline);
-
-                    if (!isOnline) {
-                        const key = `offline:${receiverId}:messages`;
-
-                        await pubClient.rPush(key, JSON.stringify(messageData));
-                        await pubClient.lTrim(key, -50, -1);
-                        await pubClient.expire(key, 3600);
-
-                        console.log(`Stored offline for ${receiverId}`);
-                    }
-                }
-
-                // Publish to Redis
-                await pubClient.publish("chat_messages", JSON.stringify(messageData));
-
             } catch (err) {
                 console.log("Error:", err);
                 socket.emit("message_error", { message: err.message });
