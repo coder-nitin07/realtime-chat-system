@@ -168,9 +168,12 @@ const handleSendMessage = async ({ conversationId, senderId, content }) => {
         conversationId,
         message: savedMessage,
     };
+    
+    const cacheKey = `chat:${conversationId}:messages`;await pubClient.del(`chat:${conversationId}:messages`);
 
-    // 2. Invalidate cache
-    await pubClient.del(`chat:${conversationId}:messages`);
+    // update cache instead of delete
+    await pubClient.rPush(cacheKey, JSON.stringify(savedMessage));
+    await pubClient.lTrim(cacheKey, -50, -1);
 
     // 3. Get conversation members
     const conversation = await Conversation.findById(conversationId).select("participants");
