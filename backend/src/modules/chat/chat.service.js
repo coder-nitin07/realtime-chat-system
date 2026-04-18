@@ -3,16 +3,16 @@ import Conversation from "./conversation.model.js";
 import Message from "./message.model.js";
 
 // chat api creation
-const createChat = async ({ currentUser, participants, type, groupName, admin, lastMessage })=>{
+const createChat = async ({ currentUser, participants, type, groupName })=>{
+    let newConversationRoom;
+
     if(type === 'private'){
         // validate the participents
         if(!participants || participants.length !== 2){
             throw { status: 400, message: "Private chat requires exactly 2 users" };
         }
 
-        const firstUser = participants[0];
-        const secondUser = participants[1];
-        
+        const [ firstUser, secondUser ] = participants;
 
         // find existing conversation
         const existingConversation = await Conversation.findOne({
@@ -26,12 +26,10 @@ const createChat = async ({ currentUser, participants, type, groupName, admin, l
         }
 
         // create new conversation room
-        const newConversationRoom = await Conversation.create({
+        newConversationRoom = await Conversation.create({
             participants: [ firstUser, secondUser ],
             type: 'private'
         });
-
-        return newConversationRoom;
     }
     else if(type === 'group'){
          // validate the participents
@@ -43,21 +41,26 @@ const createChat = async ({ currentUser, participants, type, groupName, admin, l
 
         // removee the admin if exist in participants
         const filteredParticipants = participants.filter(
-            (id) => id !== adminUser
+            (id) => id.toString() !== adminUser.toString()
         );
 
         // include admin in participants
         const finalParticipants = [ adminUser, ...filteredParticipants ];
 
-        const newConversationRoom = await Conversation.create({
+        newConversationRoom = await Conversation.create({
             participants: finalParticipants,
             type: "group",
             groupName,
             admin: adminUser
         });
-
-        return newConversationRoom;
     }
+
+    // cache invalidation
+    for(const userId of newConversationRoom.participants){
+        await pubClient.del(`user:${ userId }:chats`)
+    }
+
+    return newConversationRoom;
 };
 
 // getChats service
@@ -79,7 +82,7 @@ const getChats = async ({ getUser })=>{
         // fetch from DB
         const findUserChats = await Conversation.find({
             participants: getUser
-        });
+        }).populate("participants", "username email");
 
         if(!findUserChats.length){
             return [];
@@ -139,7 +142,7 @@ const fetchOlderChats = async ({ conversationId })=>{
     console.log('Cache Miss');
 
     const messages = await Message.find({
-        conversatioId: conversationId
+        conversationId: conversationId
     })
     .sort({ createdAt: -1 })
     .limit(limit);
