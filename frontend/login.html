@@ -2,20 +2,104 @@
 <html>
 <head>
   <title>Login</title>
+
+  <style>
+    body {
+      background: #121212;
+      color: white;
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .container {
+      background: #1e1e1e;
+      padding: 30px;
+      border-radius: 10px;
+      width: 300px;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    input {
+      width: 100%;
+      padding: 10px;
+      margin: 8px 0;
+      border: none;
+      border-radius: 5px;
+      background: #2c2c2c;
+      color: white;
+      outline: none;
+    }
+
+    input:focus {
+      border: 1px solid #4caf50;
+    }
+
+    button {
+      width: 100%;
+      padding: 10px;
+      background: #4caf50;
+      border: none;
+      border-radius: 5px;
+      color: white;
+      cursor: pointer;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+
+    button:hover {
+      background: #45a049;
+    }
+
+    #error {
+      color: #ff6b6b;
+      font-size: 14px;
+      margin-top: 10px;
+      text-align: center;
+    }
+
+    p {
+      text-align: center;
+      font-size: 14px;
+      margin-top: 15px;
+    }
+
+    a {
+      color: #4caf50;
+      text-decoration: none;
+      font-weight: bold;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+  </style>
+
 </head>
+
 <body>
 
-  <h2>Login</h2>
+  <div class="container">
+    <h2>Login</h2>
 
-  <input type="email" id="email" placeholder="Email" />
-  <br><br>
+    <input type="email" id="email" placeholder="Email" />
+    <input type="password" id="password" placeholder="Password" />
 
-  <input type="password" id="password" placeholder="Password" />
-  <br><br>
+    <button onclick="login()">Login</button>
 
-  <button onclick="login()">Login</button>
+    <p id="error"></p>
 
-  <p id="error" style="color:red;"></p>
+    <p>Don't have an account? <a href="register.html">Register</a></p>
+
+  </div>
 
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <script src="script.js"></script>

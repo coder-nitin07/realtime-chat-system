@@ -2,24 +2,153 @@
 <html>
 <head>
   <title>Chat</title>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #121212;
+      color: white;
+      display: flex;
+      height: 100vh;
+    }
+
+    /* LEFT SIDEBAR */
+    .sidebar {
+      width: 30%;
+      background: #1e1e1e;
+      padding: 15px;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid #333;
+    }
+
+    .sidebar h3 {
+      margin-top: 0;
+    }
+
+    input {
+      padding: 10px;
+      margin: 5px 0;
+      border-radius: 5px;
+      border: none;
+      background: #2c2c2c;
+      color: white;
+      width: 100%;
+    }
+
+    button {
+      padding: 8px;
+      margin: 5px 0;
+      border: none;
+      border-radius: 5px;
+      background: #4caf50;
+      color: white;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #45a049;
+    }
+
+    #chatList,
+    #searchResults {
+      flex: 1;
+      overflow-y: auto;
+      margin-top: 10px;
+    }
+
+    .chat-item {
+      padding: 10px;
+      border-bottom: 1px solid #333;
+      cursor: pointer;
+    }
+
+    .chat-item:hover {
+      background: #2a2a2a;
+    }
+
+    /* RIGHT CHAT AREA */
+    .chat-area {
+      width: 70%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .messages {
+      flex: 1;
+      padding: 15px;
+      overflow-y: auto;
+    }
+
+    .message {
+      margin: 10px 0;
+      max-width: 60%;
+      padding: 10px;
+      border-radius: 8px;
+    }
+
+    .sent {
+      background: #4caf50;
+      margin-left: auto;
+      text-align: right;
+    }
+
+    .received {
+      background: #2c2c2c;
+      margin-right: auto;
+    }
+
+    .input-area {
+      display: flex;
+      padding: 10px;
+      border-top: 1px solid #333;
+    }
+
+    .input-area input {
+      flex: 1;
+      margin-right: 10px;
+    }
+  </style>
 </head>
 <body>
 
-  <h2>Chat Debug</h2>
+  <!-- SIDEBAR -->
 
-  <h3>Chats</h3>
-  <div id="chatList" style="border:1px solid black; height:150px; overflow:auto;"></div>
+  <div class="sidebar">
+    <h3>Chats</h3>
 
-  <br>
+    <input id="searchInput" placeholder="Search users..." />
+    <button onclick="searchUsers()">Search</button>
 
-  <div id="messages" style="border:1px solid black; height:200px; overflow:auto;"></div>
+    <div id="searchResults"></div>
 
-  <br>
+    <button onclick="openGroupCreator()">+ Create Group</button>
 
-  <input id="messageInput" placeholder="Type message" />
-  <button onclick="sendMessage()">Send</button>
+    <div id="groupCreator" style="display:none;">
+      <input id="groupName" placeholder="Group Name" />
+      <button onclick="createGroup()">Create</button>
+    </div>
+
+    <div id="chatList"></div>
+
+  </div>
+
+  <!-- CHAT AREA -->
+
+  <div class="chat-area">
+    <div id="messages" class="messages"></div>
+
+    <div class="input-area">
+      <input id="messageInput" placeholder="Type message..." />
+      <button onclick="sendMessage()">Send</button>
+    </div>
+
+
+  </div>
 
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <script src="script.js"></script>
 </body>
+
 </html>

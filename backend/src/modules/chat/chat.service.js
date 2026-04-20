@@ -8,16 +8,20 @@ const createChat = async ({ currentUser, participants, type, groupName })=>{
 
     if(type === 'private'){
         // validate the participents
-        if(!participants || participants.length !== 2){
-            throw { status: 400, message: "Private chat requires exactly 2 users" };
+        if (!participants || participants.length !== 1) {
+            throw { status: 400, message: "Private chat requires exactly 1 target user" };
         }
 
-        const [ firstUser, secondUser ] = participants;
+        const secondUser = participants[0];
+        const firstUser = currentUser;
+
+        // const [ firstUser, secondUser ] = participants;
 
         // find existing conversation
         const existingConversation = await Conversation.findOne({
             type: 'private',
-            participants: { $all: [ firstUser, secondUser ] }
+            participants: { $all: [firstUser, secondUser] },
+            $expr: { $eq: [ { $size: "$participants" }, 2 ] }
         });
 
         // if conversation exist return that one
@@ -82,7 +86,9 @@ const getChats = async ({ getUser })=>{
         // fetch from DB
         const findUserChats = await Conversation.find({
             participants: getUser
-        }).populate("participants", "username email");
+        })
+        .sort({ updated: -1 })
+        .populate("participants", "username email");
 
         if(!findUserChats.length){
             return [];
@@ -132,7 +138,7 @@ const fetchOlderChats = async ({ conversationId })=>{
 
     const cacheKey = `chat:${ conversationId }:messages`;
     const cachedMessages = await pubClient.lRange(cacheKey, 0, -1);
-
+console.log(conversationId, "this is the id")
     if(cachedMessages.length > 0){
         console.log(`Cached Hit`);
 
@@ -140,13 +146,14 @@ const fetchOlderChats = async ({ conversationId })=>{
     }
 
     console.log('Cache Miss');
-
     const messages = await Message.find({
         conversationId: conversationId
     })
     .sort({ createdAt: -1 })
-    .limit(limit);
-
+    .limit(limit)
+    .populate('senderId', 'name');
+    
+    console.log("first message", messages);
     // store in Redis
     for (const msg of messages) {
         await pubClient.rPush(cacheKey, JSON.stringify(msg));
@@ -167,15 +174,19 @@ const handleSendMessage = async ({ conversationId, senderId, content }) => {
         content,
     });
 
+    const populatedMessage = await Message.findById(savedMessage._id)
+        .populate('senderId', 'name');
+
     const messageData = {
         conversationId,
-        message: savedMessage,
+        message: populatedMessage
     };
     
-    const cacheKey = `chat:${conversationId}:messages`;await pubClient.del(`chat:${conversationId}:messages`);
+    const cacheKey = `chat:${conversationId}:messages`;
+    // await pubClient.del(`chat:${conversationId}:messages`);
 
     // update cache instead of delete
-    await pubClient.rPush(cacheKey, JSON.stringify(savedMessage));
+    await pubClient.rPush(cacheKey, JSON.stringify(populatedMessage.toObject()));
     await pubClient.lTrim(cacheKey, -50, -1);
 
     // 3. Get conversation members
